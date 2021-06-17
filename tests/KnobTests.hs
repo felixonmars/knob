@@ -21,45 +21,42 @@ import           Test.Chell
 import           Data.Knob
 
 main :: IO ()
-main = Test.Chell.defaultMain tests
+main = Test.Chell.defaultMain [tests]
 
-tests :: [Suite]
-tests = [test_File, test_Duplex]
-
-test_File :: Suite
-test_File = suite "file"
-	[ suite "read"
+tests :: Suite
+tests = suite "tests" $
+	suiteTests (suite "read"
 		[ test_ReadFromStart
 		, test_ReadFromOffset
 		, test_ReadToEOF
 		, test_ReadPastEOF
-		]
-	, suite "write"
+		]) ++
+	suiteTests (suite "write"
 		[ test_WriteFromStart
 		, test_WriteFromOffset
 		, test_WritePastEOF
 		, test_WriteAppended
-		]
-	, suite "seek"
+		]) ++
+	suiteTests (suite "seek"
 		[ test_SeekAbsolute
 		, test_SeekRelative
 		, test_SeekFromEnd
 		, test_SeekBeyondMaxInt
-		]
-	, suite "setSize"
+		]) ++
+	suiteTests (suite "setSize"
 		[ test_SetSize_Read
 		, test_SetSize_Write
 		, test_SetSize_ReadWrite
 		, test_SetSize_Append
-		]
+		]) ++
 	
-	, test_Ready
+	[ test_Ready
 	, test_Close
 	, test_SetContents
 	, test_WithFileHandle
 	]
 
-test_ReadFromStart :: Suite
+test_ReadFromStart :: Test
 test_ReadFromStart = assertions "from-start" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -70,7 +67,7 @@ test_ReadFromStart = assertions "from-start" $ do
 	off <- liftIO $ hTell h
 	$expect (equal off 3)
 
-test_ReadFromOffset :: Suite
+test_ReadFromOffset :: Test
 test_ReadFromOffset = assertions "from-offset" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -82,7 +79,7 @@ test_ReadFromOffset = assertions "from-offset" $ do
 	off <- liftIO $ hTell h
 	$expect (equal off 4)
 
-test_ReadToEOF :: Suite
+test_ReadToEOF :: Test
 test_ReadToEOF = assertions "to-eof" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -93,7 +90,7 @@ test_ReadToEOF = assertions "to-eof" $ do
 	off <- liftIO $ hTell h
 	$expect (equal off 5)
 
-test_ReadPastEOF :: Suite
+test_ReadPastEOF :: Test
 test_ReadPastEOF = assertions "past-eof" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -105,7 +102,7 @@ test_ReadPastEOF = assertions "past-eof" $ do
 	off <- liftIO $ hTell h
 	$expect (equal off 10)
 
-test_WriteFromStart :: Suite
+test_WriteFromStart :: Test
 test_WriteFromStart = assertions "from-start" $ do
 	k <- newKnob ""
 	h <- newFileHandle k "foo.txt" WriteMode
@@ -115,7 +112,7 @@ test_WriteFromStart = assertions "from-start" $ do
 	bytes <- Data.Knob.getContents k
 	$expect (equal bytes "abcde")
 
-test_WriteFromOffset :: Suite
+test_WriteFromOffset :: Test
 test_WriteFromOffset = assertions "from-offset" $ do
 	k <- newKnob ""
 	h <- newFileHandle k "foo.txt" WriteMode
@@ -128,7 +125,7 @@ test_WriteFromOffset = assertions "from-offset" $ do
 	bytes <- Data.Knob.getContents k
 	$expect (equal bytes "ababcde")
 
-test_WritePastEOF :: Suite
+test_WritePastEOF :: Test
 test_WritePastEOF = assertions "past-eof" $ do
 	k <- newKnob ""
 	h <- newFileHandle k "foo.txt" WriteMode
@@ -139,7 +136,7 @@ test_WritePastEOF = assertions "past-eof" $ do
 	bytes <- Data.Knob.getContents k
 	$expect (equal bytes "\0\0abcde")
 
-test_WriteAppended :: Suite
+test_WriteAppended :: Test
 test_WriteAppended = assertions "appended" $ do
 	k <- newKnob "foo"
 	h <- newFileHandle k "foo.txt" AppendMode
@@ -149,7 +146,7 @@ test_WriteAppended = assertions "appended" $ do
 	bytes <- Data.Knob.getContents k
 	$expect (equal bytes "foobar")
 
-test_SeekAbsolute :: Suite
+test_SeekAbsolute :: Test
 test_SeekAbsolute = assertions "absolute" $ do
 	k <- newKnob ""
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -161,7 +158,7 @@ test_SeekAbsolute = assertions "absolute" $ do
 	$expect (equal before 0)
 	$expect (equal after 2)
 
-test_SeekRelative :: Suite
+test_SeekRelative :: Test
 test_SeekRelative = assertions "relative" $ do
 	k <- newKnob ""
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -176,7 +173,7 @@ test_SeekRelative = assertions "relative" $ do
 	$expect (equal after1 2)
 	$expect (equal after2 4)
 
-test_SeekFromEnd :: Suite
+test_SeekFromEnd :: Test
 test_SeekFromEnd = assertions "from-end" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -188,7 +185,7 @@ test_SeekFromEnd = assertions "from-end" $ do
 	$expect (equal before 0)
 	$expect (equal after 3)
 
-test_SeekBeyondMaxInt :: Suite
+test_SeekBeyondMaxInt :: Test
 test_SeekBeyondMaxInt = assertions "beyond-max-int" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -212,7 +209,7 @@ test_SeekBeyondMaxInt = assertions "beyond-max-int" $ do
 		(GHC.IOError (Just h) GHC.InvalidArgument "hSeek" "offset > (maxBound :: Int)" Nothing (Just "foo.txt"))
 		(hSeek h SeekFromEnd 2)
 
-test_Ready :: Suite
+test_Ready :: Test
 test_Ready = assertions "ready" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -225,7 +222,7 @@ test_Ready = assertions "ready" $ do
 		(GHC.IOError (Just h) GHC.EOF "hWaitForInput" "" Nothing (Just "foo.txt"))
 		(hReady h)
 
-test_Close :: Suite
+test_Close :: Test
 test_Close = assertions "close" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -238,7 +235,7 @@ test_Close = assertions "close" $ do
 		(GHC.IOError (Just h) GHC.IllegalOperation "hWaitForInput" "handle is closed" Nothing (Just "foo.txt"))
 		(hReady h)
 
-test_SetSize_Read :: Suite
+test_SetSize_Read :: Test
 test_SetSize_Read = assertions "ReadMode" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadMode
@@ -252,7 +249,7 @@ test_SetSize_Read = assertions "ReadMode" $ do
 		(GHC.IOError (Just h) GHC.IllegalOperation "hSetFileSize" "handle in ReadMode" Nothing (Just "foo.txt"))
 		(hSetFileSize h 2)
 
-test_SetSize_Write :: Suite
+test_SetSize_Write :: Test
 test_SetSize_Write = assertions "WriteMode" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" WriteMode
@@ -269,7 +266,7 @@ test_SetSize_Write = assertions "WriteMode" $ do
 	bytes <- Data.Knob.getContents k
 	$expect (equal bytes "\0\0\0\0")
 
-test_SetSize_ReadWrite :: Suite
+test_SetSize_ReadWrite :: Test
 test_SetSize_ReadWrite = assertions "ReadWriteMode" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" ReadWriteMode
@@ -291,7 +288,7 @@ test_SetSize_ReadWrite = assertions "ReadWriteMode" $ do
 		bytes <- Data.Knob.getContents k
 		$expect (equal bytes "abcd\0\0")
 
-test_SetSize_Append :: Suite
+test_SetSize_Append :: Test
 test_SetSize_Append = assertions "AppendMode" $ do
 	k <- newKnob "abcde"
 	h <- newFileHandle k "foo.txt" AppendMode
@@ -311,7 +308,7 @@ test_SetSize_Append = assertions "AppendMode" $ do
 		bytes <- Data.Knob.getContents k
 		$expect (equal bytes "abcd\0\0")
 
-test_SetContents :: Suite
+test_SetContents :: Test
 test_SetContents = assertions "setContents" $ do
 	k <- newKnob "abcde"
 	before <- Data.Knob.getContents k
@@ -321,7 +318,7 @@ test_SetContents = assertions "setContents" $ do
 	$expect (equal before "abcde")
 	$expect (equal after "foo")
 
-test_WithFileHandle :: Suite
+test_WithFileHandle :: Test
 test_WithFileHandle = assertions "withFileHandle" $ do
 	k <- newKnob ""
 	h <- withFileHandle k "test.txt" WriteMode $ \h -> do
@@ -333,6 +330,3 @@ test_WithFileHandle = assertions "withFileHandle" $ do
 	
 	closed <- liftIO $ hIsClosed h
 	$expect closed
-
-test_Duplex :: Suite
-test_Duplex = suite "duplex" []

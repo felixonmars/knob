@@ -5,7 +5,7 @@ license-file: license.txt
 author: John Millikin <jmillikin@gmail.com>
 maintainer: John Millikin <jmillikin@gmail.com>
 build-type: Simple
-cabal-version: >= 1.6
+cabal-version: >= 1.8
 category: System
 stability: experimental
 homepage: https://john-millikin.com/software/knob/
@@ -46,6 +46,10 @@ source-repository this
   location: https://john-millikin.com/branches/knob/0.1/
   tag: knob_0.1.1
 
+flag coverage
+  default: False
+  manual: True
+
 library
   hs-source-dirs: lib
   ghc-options: -Wall -O2
@@ -57,3 +61,18 @@ library
 
   exposed-modules:
     Data.Knob
+
+test-suite knob_tests
+  type: exitcode-stdio-1.0
+  main-is: tests/KnobTests.hs
+  ghc-options: -Wall
+
+  if flag(coverage)
+    ghc-options: -fhpc
+
+  build-depends:
+      base >= 4.2 && < 5.0
+    , bytestring >= 0.9 && < 0.11
+    , chell >= 0.2 && < 0.6
+    , transformers >= 0.2 && < 0.6
+    , knob
