@@ -55,7 +55,7 @@ library
   ghc-options: -Wall -O2
 
   build-depends:
-      base >= 4.2 && < 5.0
+      base >= 4.15 && < 5.0
     , bytestring >= 0.9
     , transformers >= 0.2
 
@@ -71,7 +71,7 @@ test-suite knob_tests
     ghc-options: -fhpc
 
   build-depends:
-      base >= 4.2 && < 5.0
+      base >= 4.15 && < 5.0
     , bytestring >= 0.9 && < 0.11
     , chell >= 0.2 && < 0.6
     , transformers >= 0.2 && < 0.6
