@@ -60,12 +60,6 @@ newtype Knob = Knob (MVar.MVar ByteString)
 data Device = Device IO.IOMode (MVar.MVar ByteString) (MVar.MVar Int)
 	deriving (Typeable)
 
-instance IO.RawIO Device where
-	read _ _ _ _ = return 0
-	readNonBlocking _ _ _ _ = return Nothing
-	write _ _ _ _ = return ()
-	writeNonBlocking _ _ _ _ = return 0
-
 instance IO.IODevice Device where
 	ready _ _ _ = return True
 	close _ = return ()
@@ -74,20 +68,20 @@ instance IO.IODevice Device where
 	
 	seek (Device _ _ var) IO.AbsoluteSeek off = do
 		checkOffset off
-		MVar.modifyMVar var (\_ -> return ((fromInteger off), off))
+		MVar.modifyMVar var (\_ -> return (fromInteger off, off))
 	
 	seek (Device _ _ var) IO.RelativeSeek off = do
 		MVar.modifyMVar var (\old_off -> do
 			let new_off = toInteger old_off + off
 			checkOffset new_off
-			return ((fromInteger new_off), new_off))
+			return (fromInteger new_off, new_off))
 	
 	seek dev@(Device _ _ off_var) IO.SeekFromEnd off = do
 		MVar.modifyMVar off_var (\_ -> do
 			size <- IO.getSize dev
 			let new_off = size + off
 			checkOffset new_off
-			return ((fromInteger new_off), new_off))
+			return (fromInteger new_off, new_off))
 	
 	tell (Device _ _ var) = fmap toInteger (MVar.readMVar var)
 	getSize (Device _ var _) = do
@@ -117,6 +111,35 @@ setDeviceSize (Device mode bytes_var _) size = checkSize >> setBytes where
 	clip bytes = case intSize - Data.ByteString.length bytes of
 		padLen | padLen > 0 -> Data.ByteString.append bytes (Data.ByteString.replicate padLen 0)
 		_ -> Data.ByteString.take intSize bytes
+
+{- What about non-POSIX environment? -}
+instance IO.RawIO Device where
+	read (Device _ bytes_var pos_var) ptr _ bufSize = do
+		MVar.withMVar bytes_var $ \bytes -> do
+			MVar.modifyMVar pos_var $ \pos -> do
+				if pos >= Data.ByteString.length bytes
+					then return (pos, 0)
+					else do
+						let chunk = Data.ByteString.take bufSize (Data.ByteString.drop pos bytes)
+						unsafeUseAsCStringLen chunk $ \(chunkPtr, chunkLen) -> do
+							Foreign.copyArray ptr (Foreign.castPtr chunkPtr) chunkLen
+							return (pos + chunkLen, chunkLen)
+
+	write (Device _ bytes_var pos_var) ptr _ bufSize = do
+		MVar.modifyMVar_ bytes_var $ \bytes -> do
+			MVar.modifyMVar pos_var $ \pos -> do
+				let (before, after) = Data.ByteString.splitAt pos bytes
+				let padding = Data.ByteString.replicate (pos - Data.ByteString.length before) 0
+
+				bufBytes <- Data.ByteString.packCStringLen (Foreign.castPtr ptr, bufSize)
+				let newBytes = Data.ByteString.concat [before, padding, bufBytes, Data.ByteString.drop bufSize after]
+				return (pos + bufSize, newBytes)
+		return ()
+
+	readNonBlocking dev buf off size = IO.read dev buf off size >>= \cnt -> if cnt == 0
+		then return Nothing
+		else return $ Just cnt
+	writeNonBlocking dev buf off cnt = IO.write dev buf off cnt >> return cnt
 
 instance IO.BufferedIO Device where
 	newBuffer _ = IO.newByteBuffer 4096
